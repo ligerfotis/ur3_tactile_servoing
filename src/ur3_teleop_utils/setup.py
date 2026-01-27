@@ -28,6 +28,7 @@ setup(
         'console_scripts': [
             'keyboard_servo = ur3_teleop_utils.keyboard_servo:main',
             'test_pub = ur3_teleop_utils.test_pub:main',
+            'tactile_servo = ur3_teleop_utils.tactile_servo:main',
         ],
     },
 )

@@ -21,3 +21,4 @@ __pycache__/
 src/Universal_Robots_ROS2_Description/
 src/Universal_Robots_ROS2_Driver/
 src/Universal_Robots_ROS2_Gazebo_Simulation/
+src/tactile-perception-ros/
