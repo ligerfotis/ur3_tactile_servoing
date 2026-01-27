@@ -15,4 +15,4 @@ sleep 2
 echo "Starting simulation..."
 source /opt/ros/humble/setup.bash
 source install/setup.bash
-ros2 launch ur_simulation_gazebo ur_sim_moveit.launch.py ur_type:=ur3e
+ros2 launch ur_simulation_gazebo ur_sim_moveit.launch.py ur_type:=ur3e initial_positions_file:=/home/fotis/ur3_teleop/src/Universal_Robots_ROS2_Description/config/initial_positions.yaml

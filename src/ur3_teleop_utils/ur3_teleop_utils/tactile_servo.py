@@ -15,12 +15,14 @@ class TactileServoNode(Node):
         
         # Parameters
         self.declare_parameter('force_topic', '/tactile/force_vector')
-        self.declare_parameter('velocity_gain', 8.0)  # m/s per unit force
-        self.declare_parameter('max_velocity', 0.4)   # m/s max
-        self.declare_parameter('dead_zone', 0.005)    # Ignore forces below this
+        self.declare_parameter('lateral_velocity_gain', 15.0)  # XY m/s per unit force
+        self.declare_parameter('normal_velocity_gain', 5.0)   # Z m/s per unit force
+        self.declare_parameter('max_velocity', 0.5)           # m/s max
+        self.declare_parameter('dead_zone', 0.005)            # Ignore forces below this
         self.declare_parameter('invert_direction', False)
         
-        self.velocity_gain = self.get_parameter('velocity_gain').value
+        self.lateral_gain = self.get_parameter('lateral_velocity_gain').value
+        self.normal_gain = self.get_parameter('normal_velocity_gain').value
         self.max_velocity = self.get_parameter('max_velocity').value
         self.dead_zone = self.get_parameter('dead_zone').value
         self.invert = self.get_parameter('invert_direction').value
@@ -60,10 +62,23 @@ class TactileServoNode(Node):
         
         if magnitude >= self.dead_zone:
             direction = -1.0 if self.invert else 1.0
-            scale = min(magnitude * self.velocity_gain, self.max_velocity) / magnitude
-            twist.twist.linear.x = fx * scale * direction
-            twist.twist.linear.y = fy * scale * direction
-            twist.twist.linear.z = fz * scale * direction
+            
+            # Apply different gains for lateral (XY) and normal (Z)
+            vx = fx * self.lateral_gain * direction
+            vy = fy * self.lateral_gain * direction
+            vz = fz * self.normal_gain * direction
+            
+            # Clamp total velocity magnitude while preserving direction
+            v_mag = math.sqrt(vx**2 + vy**2 + vz**2)
+            if v_mag > self.max_velocity:
+                scale = self.max_velocity / v_mag
+                vx *= scale
+                vy *= scale
+                vz *= scale
+                
+            twist.twist.linear.x = vx
+            twist.twist.linear.y = vy
+            twist.twist.linear.z = vz
             self.last_force_time = time.time()
         else:
             # Below dead zone = Zero velocity
