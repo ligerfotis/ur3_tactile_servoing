@@ -44,6 +44,19 @@ source install/setup.bash
 ros2 run ur3_teleop_utils start_teleop.sh
 ```
 
+### 3. Run Tactile Perception (Terminal 3)
+Starts the tactile sensor nodes within the conda environment.
+```bash
+./start_tactile.sh
+```
+
+### 4. Run Tactile Servoing (Terminal 4)
+Starts the node that translates force vectors to robot movement.
+```bash
+source install/setup.bash
+ros2 run ur3_teleop_utils tactile_servo
+```
+
 ## 🎮 Controls
 
 Click inside the **Teleoperation Terminal (Terminal 2)** to control the robot:
@@ -56,6 +69,8 @@ Click inside the **Teleoperation Terminal (Terminal 2)** to control the robot:
 | **1 / 2** | Decrease / Increase Speed |
 
 **Note**: The default speed is set to `0.1` m/s for safety.
+
+**Tactile Mode**: Apply force to the sensor to move the end-effector.
 
 ## 🛠 Project Structure
 
