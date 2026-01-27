@@ -1,0 +1,23 @@
+# ROS 2 build artifacts
+build/
+install/
+log/
+.colcon/
+
+# Python
+__pycache__/
+*.py[cod]
+*.so
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+
+# Temporary files
+.DS_Store
+
+# Upstream Repositories (Managed by vcs/ur3_teleop.repos)
+src/Universal_Robots_ROS2_Description/
+src/Universal_Robots_ROS2_Driver/
+src/Universal_Robots_ROS2_Gazebo_Simulation/
