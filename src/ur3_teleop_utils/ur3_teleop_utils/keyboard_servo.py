@@ -3,10 +3,13 @@ import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import TwistStamped
 import sys, select, termios, tty
+import time
 
 msg = """
 Reading from the keyboard and Publishing to TwistStamped!
 ---------------------------
+Multi-Key Support Enabled (Diagonal Movement!)
+
 Planar Movement:
    w / s : Forward / Backward (X+/X-)
    a / d : Left / Right (Y+/Y-)
@@ -37,16 +40,30 @@ speedBindings = {
     '1': (0.9, 0.9),
 }
 
-def getKey(settings):
+HOLD_TIMEOUT = 0.5  # Keys are considered "held" for 500ms after last press
+
+def getKeys(settings):
+    """
+    Reads all available keys from stdin without blocking.
+    Returns a string of characters.
+    """
     tty.setraw(sys.stdin.fileno())
-    rlist, _, _ = select.select([sys.stdin], [], [], 0.1)
+    rlist, _, _ = select.select([sys.stdin], [], [], 0.01)  # Short poll
+    keys = ''
     if rlist:
-        key = sys.stdin.read(1)
-    else:
-        key = ''
+        try:
+            # Drain the buffer
+            while True:
+                rlist2, _, _ = select.select([sys.stdin], [], [], 0.0) 
+                if rlist2:
+                    keys += sys.stdin.read(1)
+                else:
+                    break
+        except Exception:
+            pass
     
     termios.tcsetattr(sys.stdin, termios.TCSADRAIN, settings)
-    return key
+    return keys
 
 def main():
     settings = termios.tcgetattr(sys.stdin)
@@ -56,56 +73,69 @@ def main():
     
     speed = 0.1
     turn = 0.5
-    x = 0
-    y = 0
-    z = 0
-    th = 0
     status = 0
+    
+    # State tracking: key -> last_press_time
+    key_states = {}
 
     try:
         print(msg)
         while(1):
-            key = getKey(settings)
+            current_time = time.time()
+            key_batch = getKeys(settings)
             
-            # Debugging print to confirm key press
-            if key != '':
-                 print(f"Key Pressed: {key!r}", flush=True)
+            # Update state for any keys received
+            for k in key_batch:
+                if k in moveBindings.keys():
+                    key_states[k] = current_time
+                elif k in speedBindings.keys():
+                    speed = speed * speedBindings[k][0]
+                    turn = turn * speedBindings[k][1]
+                    print(f"currently:\tspeed {speed:.2f}", flush=True)
+                    if (status == 14):
+                        print(msg)
+                    status = (status + 1) % 15
+                elif k == '\x03':  # CTRL-C
+                    raise KeyboardInterrupt()
 
-            if key in moveBindings.keys():
-                x = moveBindings[key][0]
-                y = moveBindings[key][1]
-                z = moveBindings[key][2]
-                th = moveBindings[key][3]
-            elif key in speedBindings.keys():
-                speed = speed * speedBindings[key][0]
-                turn = turn * speedBindings[key][1]
-                print(f"currently:\tspeed {speed:.2f}", flush=True)
-                if (status == 14):
-                    print(msg)
-                status = (status + 1) % 15
-                continue
-            else:
-                x = 0
-                y = 0
-                z = 0
-                th = 0
-                if (key == '\x03'): # CTRL-C
-                    break
+            # Calculate movement vector from all "active" keys
+            x = 0
+            y = 0
+            z = 0
+            th = 0
             
+            active_keys = []
+            for key, binding in moveBindings.items():
+                if key in key_states and (current_time - key_states[key]) < HOLD_TIMEOUT:
+                    x += binding[0]
+                    y += binding[1]
+                    z += binding[2]
+                    th += binding[3]
+                    active_keys.append(key)
+            
+            # Clamp values to -1, 0, 1
+            x = max(min(x, 1), -1)
+            y = max(min(y, 1), -1)
+            z = max(min(z, 1), -1)
+
+            if active_keys:
+                print(f"Active keys: {active_keys} -> Move: [{x}, {y}, {z}]", flush=True)
+
             # Publish command
             twist = TwistStamped()
             twist.header.stamp = node.get_clock().now().to_msg()
             twist.header.frame_id = "tool0"
-            twist.twist.linear.x = x * speed
-            twist.twist.linear.y = y * speed
-            twist.twist.linear.z = z * speed
+            twist.twist.linear.x = float(x) * speed
+            twist.twist.linear.y = float(y) * speed
+            twist.twist.linear.z = float(z) * speed
             twist.twist.angular.x = 0.0
             twist.twist.angular.y = 0.0
-            twist.twist.angular.z = th * turn
+            twist.twist.angular.z = float(th) * turn
             pub.publish(twist)
 
-    except Exception as e:
-        print(e)
+    except KeyboardInterrupt:
+        print("\nCTRL-C")
+
     finally:
         twist = TwistStamped()
         twist.twist.linear.x = 0.0; twist.twist.linear.y = 0.0; twist.twist.linear.z = 0.0

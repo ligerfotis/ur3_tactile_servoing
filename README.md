@@ -44,9 +44,9 @@ source install/setup.bash
 ros2 run ur3_teleop_utils start_teleop.sh
 ```
 
-## 🎮 Controls
+## 🎮 Controls (WASD)
 
-Click inside the **Teleoperation Terminal (Terminal 2)** to control the robot:
+**Multi-Key Support**: You can hold multiple keys (e.g., `w` + `a`) for diagonal movement!
 
 | Key | Action |
 | :--- | :--- |
