@@ -2,92 +2,111 @@
 
 **Real-time closed-loop control of a Universal Robots UR3e using GelSight tactile feedback.**
 
-This repository implements a tactile servoing pipeline that enables a UR3e manipulator to actively respond to contact forces. By closing the loop between a **GelSight Mini** sensor and the **MoveIt Servo** controller, the system enables compliant, force-aware manipulation where the robot yields to physical interaction in real-time.
+This repository implements a tactile servoing pipeline that enables a UR3e manipulator to actively respond to contact forces. The system creates a "virtual spring" behavior where the robot continuously tries to return to a home position, but yields to physical touch - like a compliant sponge.
 
 ---
 
 ## 🏗️ System Architecture
 
-The system is composed of three primary subsystems operating in a closed feedback loop:
-
 ### 1. Tactile Perception
-*   **Sensor**: GelSight Mini (Optical-Tactile Sensor).
-*   **Processing**: The perception node tracks high-contrast marker displacement on the elastomeric surface.
-*   **Output**: This flow field is mapped to a 3-dimensional force vector ($F_x, F_y, F_z$) published as a `Vector3Stamped` message.
+- **Sensor**: GelSight Mini (Optical-Tactile Sensor)
+- **Processing**: Tracks marker displacement on the elastomeric surface using optical flow
+- **Output**: 3D force vector (`Vector3Stamped`) representing contact direction
 
-### 2. High-Level Control Logic
-*   **Node**: `tactile_servo_node`
-*   **Function**: Transforms raw force vectors into Cartesian velocity commands for the robot end-effector.
-*   **Anisotropic Gain Scheduling**: To improve controllability, the system applies independent gains for lateral (shear) and normal (pressure) forces. This allows for sensitive "steering" responsiveness while maintaining stable contact pressure.
+### 2. Compliance Control (`tactile_servo_node`)
+- **Virtual Spring**: Robot continuously pulls toward home position
+- **Touch Response**: When touched, the robot yields in the direction of the force
+- **Safety Limits**: Max deviation from home (0.3 rad), stronger spring when far from home
+- **Direct Position Control**: Bypasses MoveIt Servo for fast spring-back (~100Hz)
 
 ### 3. Motion Control
-*   **Controller**: `forward_position_controller` driven by **MoveIt Servo**.
-*   **Inverse Kinematics**: Converts the Cartesian velocity command into joint-space velocities using the Inverse Jacobian, while actively avoiding singularities and joint limits.
+- **Spring-back**: Uses `forward_position_controller` directly (fast, no Servo limits)
+- **Touch motion**: Uses MoveIt Servo for Cartesian velocity from touch forces
+- **Singularity handling**: Relaxed thresholds to prevent emergency stops
 
 ---
 
 ## 🚀 Quickstart Guide
 
 ### Prerequisites
-*   **OS**: Ubuntu 22.04 LTS (Jammy)
-*   **ROS 2**: Humble Hawksbill
-*   **Hardware**: UR3e Robot (or Gazebo Simulation) + GelSight Mini
+- **OS**: Ubuntu 22.04 LTS (Jammy)
+- **ROS 2**: Humble Hawksbill
+- **Hardware**: UR3e Robot + GelSight Mini
 
 ### 1. Installation
-Clone the repository and build the colcon workspace:
 ```bash
-cd ~/ur3_teleop  # Project folder
+cd ~/ur3_teleop
 colcon build --symlink-install
 source install/setup.bash
 ```
 
-### 2. Launching the Simulation
-We provide a unified launch script that initializes the Gazebo environment, loads the robot description, and starts the MoveIt planning pipeline.
+### 2. Running on Real Robot
 
-**Terminal 1: Simulation Backend**
+**Terminal 1: Start the robot driver + MoveIt**
 ```bash
-./run_simulation.sh
+./run_real.sh
 ```
-*Wait for the MoveGroup interface to initialize and the robot to settle in its home position.*
+*Wait for "Robot Connected" and the robot will move to home position.*
 
-### 3. Activating Tactile Control
-Once the simulation is running, launch the tactile servoing pipeline. This script performs an atomic controller switch to prepare the robot for velocity streaming.
-
-**Terminal 2: Control Node**
+**Terminal 2: Activate tactile servoing**
 ```bash
 source install/setup.bash
 ros2 launch ur3_tactile_servoing_utils tactile_servoing.launch.py
 ```
 
-**System Status**: The robot should remain rigid in its initial pose. Interacting with the GelSight sensor (real or simulated signal) will now drive the robot end-effector away from the applied force vector.
+The robot will now behave like a spring - push it and it yields, release and it snaps back!
+
+### 3. Running in Simulation
+```bash
+./run_simulation.sh
+# Then in another terminal:
+ros2 launch ur3_tactile_servoing_utils tactile_servoing.launch.py
+```
 
 ---
 
-## ⚙️ Configuration Parameters
+## ⚙️ Configuration
 
-The control behavior can be tuned in `src/ur3_tactile_servoing_utils/launch/tactile_servoing.launch.py`:
+### Home Position
+Edit in `src/ur3_tactile_servoing_utils/ur3_tactile_servoing_utils/tactile_servo.py`:
+```python
+self.home_joints = [0.105, -2.35, -1.0, 0.145, 1.57, 0.785]
+# Order: [shoulder_pan, shoulder_lift, elbow, wrist_1, wrist_2, wrist_3]
+```
 
+Also update `move_to_home.py` to match!
+
+### Control Parameters
+In `tactile_servo.py`:
 | Parameter | Default | Description |
 | :--- | :--- | :--- |
-| `lateral_velocity_gain` | `15.0` | Sensitivity to shear forces ($X, Y$). Higher values increase steering responsiveness. |
-| `normal_velocity_gain` | `2.0` | Sensitivity to normal force ($Z$). Lower values provide "heavier" resistance to pushing. |
-| `max_velocity` | `0.5` | Saturation limit (m/s) for the output velocity command. |
-| `dead_zone` | `0.005` | Minimum force magnitude required to trigger motion (noise filtering). |
+| `tactile_speed` | `0.3` | Speed when touched (m/s) |
+| `spring_speed` | `0.3` | Max spring return speed (rad/s) |
+| `dead_zone` | `0.005` | Min force to trigger motion |
+| `max_deviation` | `0.3` | Max distance from home (rad) |
 
-### Initial Robot Pose
-The robot's home configuration is defined in `src/Universal_Robots_ROS2_Description/config/initial_positions.yaml`. The default is a **Horizontal Flange** pose optimized to maximize the workspace and strictly avoid wrist singularities.
+### Servo Config
+In `config/my_servo_config.yaml`:
+- `lower_singularity_threshold`: 10000 (relaxed to avoid emergency stops)
+- `hard_stop_singularity_threshold`: 20000
 
 ---
 
 ## 🔧 Troubleshooting
 
-**Error: "No GelSight cameras found"**
-*   **Context**: The perception node cannot access the USB video device.
-*   **Solution**: Verify the USB connection and check permissions: `sudo chmod 666 /dev/video*`.
+**Robot moves slowly / doesn't snap back**
+- Check that `forward_position_controller` is active
+- Run: `ros2 control list_controllers`
 
-**Warning: "Very close to a singularity"**
-*   **Context**: The robot has reached a geometric configuration where it loses a degree of freedom (e.g., wrist alignement).
-*   **Solution**: The servoing loop will halt to prevent unstable motion. Restart the simulation or jog the robot away from the singularity.
+**"Very close to a singularity" warnings**
+- The current thresholds are very relaxed; if still occurring, adjust home pose away from singularities
+
+**MoveIt won't plan/execute**
+- The tactile servoing uses `forward_position_controller`; MoveIt needs `joint_trajectory_controller`
+- Switch: `ros2 control switch_controllers --activate joint_trajectory_controller --deactivate forward_position_controller`
+
+**GelSight camera not found**
+- Check: `ls /dev/video*` and `sudo chmod 666 /dev/video*`
 
 ---
 
