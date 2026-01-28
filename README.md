@@ -1,89 +1,94 @@
-# UR3e Teleoperation Project
+# UR3e Tactile Servoing System
 
-This project simulates a UR3e robot in Gazebo and provides a keyboard teleoperation interface using MoveIt Servo.
+**Real-time closed-loop control of a Universal Robots UR3e using GelSight tactile feedback.**
 
-## 🚀 Quick Start
+This repository implements a tactile servoing pipeline that enables a UR3e manipulator to actively respond to contact forces. By closing the loop between a **GelSight Mini** sensor and the **MoveIt Servo** controller, the system enables compliant, force-aware manipulation where the robot yields to physical interaction in real-time.
 
-## 📦 Installation
+---
 
-### 1. Install Dependencies
+## 🏗️ System Architecture
+
+The system is composed of three primary subsystems operating in a closed feedback loop:
+
+### 1. Tactile Perception
+*   **Sensor**: GelSight Mini (Optical-Tactile Sensor).
+*   **Processing**: The perception node tracks high-contrast marker displacement on the elastomeric surface.
+*   **Output**: This flow field is mapped to a 3-dimensional force vector ($F_x, F_y, F_z$) published as a `Vector3Stamped` message.
+
+### 2. High-Level Control Logic
+*   **Node**: `tactile_servo_node`
+*   **Function**: Transforms raw force vectors into Cartesian velocity commands for the robot end-effector.
+*   **Anisotropic Gain Scheduling**: To improve controllability, the system applies independent gains for lateral (shear) and normal (pressure) forces. This allows for sensitive "steering" responsiveness while maintaining stable contact pressure.
+
+### 3. Motion Control
+*   **Controller**: `forward_position_controller` driven by **MoveIt Servo**.
+*   **Inverse Kinematics**: Converts the Cartesian velocity command into joint-space velocities using the Inverse Jacobian, while actively avoiding singularities and joint limits.
+
+---
+
+## 🚀 Quickstart Guide
+
+### Prerequisites
+*   **OS**: Ubuntu 22.04 LTS (Jammy)
+*   **ROS 2**: Humble Hawksbill
+*   **Hardware**: UR3e Robot (or Gazebo Simulation) + GelSight Mini
+
+### 1. Installation
+Clone the repository and build the colcon workspace:
 ```bash
-sudo apt update
-sudo apt install python3-vcstool \
-                 ros-humble-moveit-servo \
-                 ros-humble-ur-description \
-                 ros-humble-gazebo-ros2-control \
-                 ros-humble-ur-robot-driver
-```
-
-### 2. Import Repositories
-```bash
-vcs import src < ur3_teleop.repos
-```
-
-### 3. Build the Workspace
-```bash
-cd /home/fotis/ur3_teleop
+cd ~/ur3_teleop  # Project folder
 colcon build --symlink-install
+source install/setup.bash
 ```
 
-## 🚀 Quick Start / Usage
+### 2. Launching the Simulation
+We provide a unified launch script that initializes the Gazebo environment, loads the robot description, and starts the MoveIt planning pipeline.
 
-### 1. Run Simulation (Terminal 1)
-Starts Gazebo and RViz. A "ready" stance is automatically set.
+**Terminal 1: Simulation Backend**
 ```bash
-source install/setup.bash
 ./run_simulation.sh
 ```
-*Wait ~10-15 seconds for Gazebo and RViz to fully load.*
+*Wait for the MoveGroup interface to initialize and the robot to settle in its home position.*
 
-### 2. Run Teleoperation (Terminal 2)
-Starts the servo node, switches controllers, and launches the keyboard interface.
+### 3. Activating Tactile Control
+Once the simulation is running, launch the tactile servoing pipeline. This script performs an atomic controller switch to prepare the robot for velocity streaming.
+
+**Terminal 2: Control Node**
 ```bash
 source install/setup.bash
-ros2 run ur3_teleop_utils start_teleop.sh
+ros2 launch ur3_teleop_utils tactile_servoing.launch.py
 ```
 
-### 3. Run Tactile Perception (Terminal 3)
-Starts the tactile sensor nodes within the conda environment.
-```bash
-./start_tactile.sh
-```
+**System Status**: The robot should remain rigid in its initial pose. Interacting with the GelSight sensor (real or simulated signal) will now drive the robot end-effector away from the applied force vector.
 
-### 4. Run Tactile Servoing (Terminal 4)
-Starts the node that translates force vectors to robot movement.
-```bash
-source install/setup.bash
-ros2 run ur3_teleop_utils tactile_servo
-```
+---
 
-## 🎮 Controls
+## ⚙️ Configuration Parameters
 
-Click inside the **Teleoperation Terminal (Terminal 2)** to control the robot:
+The control behavior can be tuned in `src/ur3_teleop_utils/launch/tactile_servoing.launch.py`:
 
-| Key | Action |
-| :--- | :--- |
-| **w / s** | Move Forward / Backward (X-axis) |
-| **a / d** | Move Left / Right (Y-axis) |
-| **q / e** | Move Up / Down (Z-axis) |
-| **1 / 2** | Decrease / Increase Speed |
+| Parameter | Default | Description |
+| :--- | :--- | :--- |
+| `lateral_velocity_gain` | `15.0` | Sensitivity to shear forces ($X, Y$). Higher values increase steering responsiveness. |
+| `normal_velocity_gain` | `2.0` | Sensitivity to normal force ($Z$). Lower values provide "heavier" resistance to pushing. |
+| `max_velocity` | `0.5` | Saturation limit (m/s) for the output velocity command. |
+| `dead_zone` | `0.005` | Minimum force magnitude required to trigger motion (noise filtering). |
 
-**Note**: The default speed is set to `0.1` m/s for safety.
+### Initial Robot Pose
+The robot's home configuration is defined in `src/Universal_Robots_ROS2_Description/config/initial_positions.yaml`. The default is a **Horizontal Flange** pose optimized to maximize the workspace and strictly avoid wrist singularities.
 
-**Tactile Mode**: Apply force to the sensor to move the end-effector.
+---
 
-## 🛠 Project Structure
+## 🔧 Troubleshooting
 
-*   `ur3_teleop.repos`: Dependency definitions.
-*   `run_simulation.sh`: Utility script to clean up processes and launch the simulation.
-*   `src/ur3_teleop_utils/`: Main ROS 2 package.
-    *   `scripts/start_teleop.sh`: Main script for teleoperation.
-    *   `ur3_teleop_utils/keyboard_servo.py`: Python module for keyboard input.
-    *   `launch/start_servo.launch.py`: Launcher for the MoveIt Servo node.
-    *   `config/`: Configuration files.
+**Error: "No GelSight cameras found"**
+*   **Context**: The perception node cannot access the USB video device.
+*   **Solution**: Verify the USB connection and check permissions: `sudo chmod 666 /dev/video*`.
 
-## ⚠️ Troubleshooting
+**Warning: "Very close to a singularity"**
+*   **Context**: The robot has reached a geometric configuration where it loses a degree of freedom (e.g., wrist alignement).
+*   **Solution**: The servoing loop will halt to prevent unstable motion. Restart the simulation or jog the robot away from the singularity.
 
-*   **Robot "Drops"**: This is fixed by `start_teleop.sh`. If it happens, ensure you are using the script and not running commands manually.
-*   **Keys not working**: Ensure the teleoperation terminal has focus.
-*   **Simulation Glitches**: If Gazebo hangs, `run_simulation.sh` automatically kills stale processes (gzserver/gzclient) before starting.
+---
+
+*Verified by Antigravity - January 28, 2026*
