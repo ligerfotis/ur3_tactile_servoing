@@ -10,7 +10,7 @@ def generate_launch_description():
     ur_type = "ur3e"
 
     # 1. Load Servo Parameters from YAML
-    pkg_share = get_package_share_directory('ur3_teleop_utils')
+    pkg_share = get_package_share_directory('ur3_tactile_servoing_utils')
     config_file = os.path.join(pkg_share, 'config', 'my_servo_config.yaml')
     
     with open(config_file, 'r') as f:
@@ -27,7 +27,7 @@ def generate_launch_description():
 
     # 2. Robot Description (URDF)
     # Get the package share directory
-    pkg_share = get_package_share_directory('ur3_teleop_utils')
+    pkg_share = get_package_share_directory('ur3_tactile_servoing_utils')
     config_file = os.path.join(pkg_share, 'config', 'my_servo_config.yaml')
     robot_description_config = xacro.process_file(
         os.path.join(get_package_share_directory("ur_description"), "urdf", "ur.urdf.xacro"),

@@ -14,7 +14,7 @@ sleep 1
 # Step 1: Launch servo node FIRST (in background)
 echo "Step 1: Starting servo node..."
 # Use ros2 launch with package
-ros2 launch ur3_teleop_utils start_servo.launch.py &
+ros2 launch ur3_tactile_servoing_utils start_servo.launch.py &
 SERVO_PID=$!
 sleep 4
 
@@ -72,7 +72,7 @@ echo ""
 echo "Step 7: Starting keyboard teleop..."
 echo "=== Ready! Press keys to move the robot ==="
 # Use ros2 run with package
-ros2 run ur3_teleop_utils keyboard_servo
+ros2 run ur3_tactile_servoing_utils keyboard_servo
 
 # Cleanup on exit
 echo "Cleaning up..."

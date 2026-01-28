@@ -5,7 +5,7 @@ echo "=== Preparing UR3e for Servo Commands ==="
 
 # Step 1: Start the Servo Node
 echo "Step 1: Starting servo node..."
-ros2 launch ur3_teleop_utils start_servo.launch.py &
+ros2 launch ur3_tactile_servoing_utils start_servo.launch.py &
 SERVO_PID=$!
 sleep 4
 

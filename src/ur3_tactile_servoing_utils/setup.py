@@ -2,7 +2,7 @@ from setuptools import setup
 import os
 from glob import glob
 
-package_name = 'ur3_teleop_utils'
+package_name = 'ur3_tactile_servoing_utils'
 
 setup(
     name=package_name,
@@ -26,9 +26,9 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'keyboard_servo = ur3_teleop_utils.keyboard_servo:main',
-            'test_pub = ur3_teleop_utils.test_pub:main',
-            'tactile_servo = ur3_teleop_utils.tactile_servo:main',
+            'keyboard_servo = ur3_tactile_servoing_utils.keyboard_servo:main',
+            'test_pub = ur3_tactile_servoing_utils.test_pub:main',
+            'tactile_servo = ur3_tactile_servoing_utils.tactile_servo:main',
         ],
     },
 )

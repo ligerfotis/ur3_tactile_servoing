@@ -6,7 +6,7 @@ from ament_index_python.packages import get_package_share_directory
 import os
 
 def generate_launch_description():
-    teleop_share = get_package_share_directory('ur3_teleop_utils')
+    teleop_share = get_package_share_directory('ur3_tactile_servoing_utils')
     tactile_share = get_package_share_directory('tactile_perception_ros')
 
     # 1. Tactile Perception
@@ -44,7 +44,7 @@ def generate_launch_description():
 
     # 4. Tactile Bridge Node (The Brain)
     tactile_bridge = Node(
-        package='ur3_teleop_utils',
+        package='ur3_tactile_servoing_utils',
         executable='tactile_servo',
         name='tactile_servo_node',
         parameters=[{

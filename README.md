@@ -56,7 +56,7 @@ Once the simulation is running, launch the tactile servoing pipeline. This scrip
 **Terminal 2: Control Node**
 ```bash
 source install/setup.bash
-ros2 launch ur3_teleop_utils tactile_servoing.launch.py
+ros2 launch ur3_tactile_servoing_utils tactile_servoing.launch.py
 ```
 
 **System Status**: The robot should remain rigid in its initial pose. Interacting with the GelSight sensor (real or simulated signal) will now drive the robot end-effector away from the applied force vector.
@@ -65,7 +65,7 @@ ros2 launch ur3_teleop_utils tactile_servoing.launch.py
 
 ## ⚙️ Configuration Parameters
 
-The control behavior can be tuned in `src/ur3_teleop_utils/launch/tactile_servoing.launch.py`:
+The control behavior can be tuned in `src/ur3_tactile_servoing_utils/launch/tactile_servoing.launch.py`:
 
 | Parameter | Default | Description |
 | :--- | :--- | :--- |
