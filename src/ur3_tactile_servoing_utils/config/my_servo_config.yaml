@@ -9,10 +9,10 @@ servo_node:
     command_in_type: "speed_units" # "unitless"> in the range [-1:1], as if from joystick. "speed_units"> cmds are in m/s and rad/s
     scale:
       # Scale parameters are only used if command_in_type=="unitless"
-      linear:  0.6  # Max linear velocity. Meters per publish_period. Unit is [m/s]. Only used for Cartesian commands.
-      rotational:  0.3 # Max angular velocity. Rads per publish_period. Unit is [rad/s]. Only used for Cartesian commands.
+      linear:  1.5  # Max linear velocity. Meters per publish_period. Unit is [m/s]. Only used for Cartesian commands.
+      rotational:  1.5 # Max angular velocity. Rads per publish_period. Unit is [rad/s]. Only used for Cartesian commands.
       # Max joint angular/linear velocity. Rads or Meters per publish period. Only used for joint commands on joint_command_in_topic.
-      joint: 0.01
+      joint: 1.5  # Increased from 0.05 - allows fast spring-back
     # This is a fudge factor to account for any latency in the system, e.g. network latency or poor low-level
     # controller performance. It essentially increases the timestep when calculating the target pose, to move the target
     # pose farther away. [seconds]
@@ -58,8 +58,10 @@ servo_node:
     num_outgoing_halt_msgs_to_publish: 4
 
     ## Configure handling of singularities and joint limits
-    lower_singularity_threshold:  1000.0  # Start decelerating when the condition number hits this
-    hard_stop_singularity_threshold: 2000.0 # Stop when the condition number hits this
+    # RELAXED: Very high thresholds to avoid emergency stops near singularities
+    # (We're using direct position control for spring-back anyway)
+    lower_singularity_threshold:  10000.0  # Start decelerating when the condition number hits this
+    hard_stop_singularity_threshold: 20000.0 # Stop when the condition number hits this
     joint_limit_margin: 0.1 # added as a buffer to joint limits [radians]. If moving quickly, make this larger.
 
     ## Topic names
